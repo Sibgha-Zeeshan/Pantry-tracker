@@ -6,6 +6,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import theme from "./styles/theme"; // Adjust the path if necessary
 import { Inter } from "next/font/google";
 import { AuthContextProvider } from "./auth/authcontext";
+import "./global.css";
 
 
 

@@ -1,6 +1,5 @@
 import { createTheme } from "@mui/material/styles";
 
-// Define your primary, secondary, and other color palettes
 const primaryColor = "#bdc3c7";
 const secondaryColor = "#7f8c8d";
 const errorColor = "#f44336";
@@ -46,15 +45,15 @@ const theme = createTheme({
       lineHeight: 1.5,
     },
     button: {
-      textTransform: "none", // Avoid uppercase transformation on buttons
+      textTransform: "none",
     },
   },
-  spacing: 8, // Default spacing unit
+  spacing: 8,
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 8, // Rounded corners
+          borderRadius: 8,
         },
       },
     },
