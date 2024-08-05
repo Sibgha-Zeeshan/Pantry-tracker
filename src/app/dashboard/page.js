@@ -1,4 +1,6 @@
-import React from 'react'
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { styled } from "@mui/material/styles";
 import {
   Typography,
@@ -16,23 +18,19 @@ import {
   TableRow,
   IconButton,
   TextField,
-  createTheme,
-  ThemeProvider,
-  Menu,
-  MenuItem,
-  CircularProgress,
 } from "@mui/material";
-import { useState, useEffect } from 'react';
-import { collection, deleteDoc, Firestore, getDoc, getDocs, query, setDoc } from 'firebase/firestore';
-import { firestore } from '../firebase/firebaseConfig';
 import {
-  AddShoppingCart,
-  Edit,
-  Delete,
-  Logout,
-  AccountCircle,
-  Search,
-} from "@mui/icons-material";
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+} from "firebase/firestore";
+import { firestore } from "../firebase/firebaseConfig";
+import { Edit, Delete, Search } from "@mui/icons-material";
+import { UserAuth } from "../auth/authcontext";
 
 const Footer = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
@@ -42,64 +40,105 @@ const Footer = styled(Box)(({ theme }) => ({
   position: "fixed",
   bottom: 0,
   margin: 0,
-  width: "100%",
+  left: 0, // Ensure the footer starts at the left edge
+  width: "100%", // Full width
+  boxSizing: "border-box", // Include padding and border in the element's total width
+  
 }));
 
 const Dashboard = () => {
-    const [Inventory, setInventory] = useState([]);
-    const [open, setOpen] = useState(false);
-    const [itemName, setItemName] = useState('');
+  const { userUid } = UserAuth();
+  const [Inventory, setInventory] = useState([]);
+  const [itemName, setItemName] = useState("");
+  const [itemQuantity, setItemQuantity] = useState("");
+  const [itemPrice, setItemPrice] = useState("");
+  const [editItem, setEditItem] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-    const addItem = async (item) => {
-        const docRef = doc(collection(firestore, 'Inventory', item))
-        const docSnap = await getDoc(docRef)
-
-        if (docSnap.exists()) {
-            const {quantity} = docSnap.data()
-            await setDoc(docRef, {quantity: quantity + 1})
-        }
-        else {
-          await setDoc(docRef, {quantity:1 })
-        }
-        await updateInventory()
-        }
-    
-
-    const updateInventory = async () => {
-        const snapshot = query(collection(firestore, 'Inventory'))
-        const docs = await getDocs(snapshot)
-        const inventoryList = []
-        docs.forEach((doc) => {
-            inventoryList.push(
-                {
-                    name : doc.id,
-                    ...doc.data(),
-                }
-            )
-        })
-        setInventory(inventoryList)
-        console.log(inventoryList)
+  const updateInventory = async () => {
+    if (userUid) {
+      const snapshot = query(collection(firestore, `Inventory-${userUid}`));
+      const docs = await getDocs(snapshot);
+      const inventoryList = [];
+      docs.forEach((doc) => {
+        inventoryList.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+      setInventory(inventoryList);
     }
+  };
 
-    const removeItem = async (item) => {
-      const docRef = doc(collection(firestore, "Inventory", item));
+  useEffect(() => {
+    if (userUid) {
+      updateInventory();
+    }
+  }, [userUid]);
+
+  const addItem = async (itemName, itemQuantity, itemPrice) => {
+    if (userUid) {
+      const docRef = doc(firestore, `Inventory-${userUid}`, itemName);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        const { quantity } = docSnap.data();
-        await deleteDoc(docRef)
+        const { quantity: existingQuantity } = docSnap.data();
+        await setDoc(
+          docRef,
+          {
+            quantity: existingQuantity + Number(itemQuantity),
+            price: itemPrice,
+          },
+          { merge: true }
+        );
       } else {
-        await setDoc(docRef, { quantity: quantity - 1 });
+        await setDoc(docRef, {
+          name: itemName,
+          quantity: Number(itemQuantity) || 1,
+          price: itemPrice,
+        });
       }
       await updateInventory();
-    };
-    
-    useEffect(()=>{
-        updateInventory()
-    }, [])
+      setItemName("");
+      setItemQuantity("");
+      setItemPrice("");
+    }
+  };
 
-    const handleOpen = () => setOpen(true)
-    const handleClosed = () => setOpen(false)
+  const removeItem = async (itemId) => {
+    if (userUid) {
+      const docRef = doc(firestore, `Inventory-${userUid}`, itemId);
+      await deleteDoc(docRef);
+      await updateInventory();
+    }
+  };
+
+  const startEditing = (item) => {
+    setEditItem(item);
+    setItemName(item.name);
+    setItemQuantity(item.quantity);
+    setItemPrice(item.price);
+  };
+
+  const updateItem = async (id, name, quantity, price) => {
+    if (userUid) {
+      const docRef = doc(firestore, `Inventory-${userUid}`, id);
+      await setDoc(
+        docRef,
+        { name, quantity: Number(quantity) || 1, price },
+        { merge: true }
+      );
+      await updateInventory();
+      setEditItem(null);
+      setItemName("");
+      setItemQuantity("");
+      setItemPrice("");
+    }
+  };
+
+  const filteredItems = Inventory.filter((item) =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <Container>
@@ -107,12 +146,12 @@ const Dashboard = () => {
         Welcome to Pantry Tracker
       </Typography>
 
-      {/* Container started------------------------------------------------------------- */}
-
       <Container maxWidth="lg" sx={{ marginTop: 4, paddingBottom: 8 }}>
         <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={4}>
           <Card sx={{ flex: 1 }}>
-            <CardHeader />
+            <CardHeader
+              title={editItem ? "Edit Pantry Item" : "Add Pantry Item"}
+            />
             <CardContent>
               <Box
                 component="form"
@@ -120,7 +159,12 @@ const Dashboard = () => {
               >
                 <Box>
                   <Typography variant="body1">Name</Typography>
-                  <TextField placeholder="Enter item name" fullWidth />
+                  <TextField
+                    placeholder="Enter item name"
+                    fullWidth
+                    value={itemName}
+                    onChange={(e) => setItemName(e.target.value)}
+                  />
                 </Box>
                 <Box>
                   <Typography variant="body1">Quantity</Typography>
@@ -128,17 +172,37 @@ const Dashboard = () => {
                     type="number"
                     placeholder="Enter quantity"
                     fullWidth
+                    value={itemQuantity}
+                    onChange={(e) => setItemQuantity(e.target.value)}
                   />
                 </Box>
                 <Box>
-                  <Typography variant="body1">Expiration Date</Typography>
-                  <TextField type="date" fullWidth />
+                  <Typography variant="body1">Price</Typography>
+                  <TextField
+                    type="number"
+                    fullWidth
+                    value={itemPrice}
+                    onChange={(e) => setItemPrice(e.target.value)}
+                  />
                 </Box>
-                <Box>
-                  <Typography variant="body1">price</Typography>
-                  <TextField placeholder="Enter item name" fullWidth />
-                </Box>
-                <Button variant="contained" color="primary"> Add Item </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => {
+                    if (editItem) {
+                      updateItem(
+                        editItem.id,
+                        itemName,
+                        itemQuantity,
+                        itemPrice
+                      );
+                    } else {
+                      addItem(itemName, itemQuantity, itemPrice);
+                    }
+                  }}
+                >
+                  {editItem ? "Save Changes" : "Add Item"}
+                </Button>
               </Box>
             </CardContent>
           </Card>
@@ -149,23 +213,25 @@ const Dashboard = () => {
               <TextField
                 placeholder="Search items"
                 fullWidth
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 sx={{
                   marginBottom: 2,
                   "& .MuiOutlinedInput-root": {
-                    borderRadius: "20px", // Rounded corners
-                    padding: "2px 8px", // Adjust padding for reduced height
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)", // Subtle shadow
+                    borderRadius: "20px",
+                    padding: "2px 8px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                     transition: "box-shadow 0.3s",
                     "&:hover": {
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.15)", // Enhanced shadow on hover
+                      boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
                     },
                     "&.Mui-focused": {
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.15)", // Enhanced shadow on focus
+                      boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
                     },
                   },
                   "& .MuiInputBase-input": {
-                    padding: "6px 8px", // Adjust input padding for better height
-                    fontSize: "0.875rem", // Reduce font size for better balance
+                    padding: "6px 8px",
+                    fontSize: "0.875rem",
                   },
                 }}
                 InputProps={{
@@ -187,24 +253,26 @@ const Dashboard = () => {
                     <TableRow>
                       <TableCell>Name</TableCell>
                       <TableCell>Quantity</TableCell>
-                      <TableCell>Expiration</TableCell>
+                      <TableCell>Price</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    <TableRow key="id">
-                      <TableCell>item name</TableCell>
-                      <TableCell>item quantity</TableCell>
-                      <TableCell>item price</TableCell>
-                      <TableCell>
-                        <IconButton>
-                          <Edit color="primary" />
-                        </IconButton>
-                        <IconButton>
-                          <Delete color="error" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
+                    {filteredItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell>{item.quantity}</TableCell>
+                        <TableCell>{item.price}</TableCell>
+                        <TableCell>
+                          <IconButton onClick={() => startEditing(item)}>
+                            <Edit color="primary" />
+                          </IconButton>
+                          <IconButton onClick={() => removeItem(item.id)}>
+                            <Delete color="error" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -213,7 +281,6 @@ const Dashboard = () => {
         </Box>
       </Container>
 
-      {/* Container Ended---------------------------------------------------------------- */}
       <Footer>
         <Typography variant="body2">© Pantry Tracker 2024</Typography>
       </Footer>
