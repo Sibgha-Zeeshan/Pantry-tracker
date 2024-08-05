@@ -15,13 +15,12 @@ import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import ExitToAppIcon from "@mui/icons-material/ExitToApp";
-import theme from "../styles/theme";
 import { UserAuth } from "../auth/authcontext";
 import { useRouter } from "next/navigation";
 
 
 const Navbar = () => {
-  const {logOut} = UserAuth();
+  const { user, logOut } = UserAuth();
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -60,6 +59,7 @@ const Navbar = () => {
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <IconButton color="inherit">
               <AccountCircle />
+              {user ? user.displayName : "User"}
             </IconButton>
             <Button
               color="inherit"

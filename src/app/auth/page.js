@@ -10,17 +10,15 @@ const GoogleSignUp = () => {
   const { user, googleSignIn } = UserAuth();
   const router = useRouter();
 
-  console.log(user);
-  const handleSignUp =  async () => {
-     try {
-       await googleSignIn();
-       router.push("/"); // Redirect to the homepage
-     } catch (error) {
-       console.log(error);
-     }
-
+  const handleSignUp = async () => {
+    try {
+      await googleSignIn();
+      router.push("/"); // Redirect to the homepage
+    } catch (error) {
+      console.log(error);
+    }
   };
-  
+
   return (
     <Container maxWidth="sm" sx={styles.container}>
       <Box sx={styles.glassCard}>
@@ -42,6 +40,9 @@ const GoogleSignUp = () => {
     </Container>
   );
 };
+
+// Styles remain unchanged
+
 
 const styles = {
   container: {
